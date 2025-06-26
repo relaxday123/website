@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .post-form {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+
+        .post-form h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #blogForm {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .success-message {
+            background-color: #28a745;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-top: 10px;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(-0);
+            }
+        }
+
+        .delete-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .delete-button:hover {
+            background-color: #c82333;
+            transform: scale(1.05);
+        }
+
+        .post-item {
+            animation: slideIn 0.5s ease-in-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Blog cá nhân</h1>
+        <nav>
+            <a href="index.html">Trang chủ</a>
+            <a href="blog.html">Blog</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="post-form">
+            <h2>Viết bài mới</h2>
+            <form id="blogForm">
+                <input type="text" id="title" name="title" placeholder="Tiêu đề bài viết" required>
+                <textarea id="content" name="content" placeholder="Nội dung bài viết" required></textarea>
+                <input type="date" id="date" name="date" placeholder="Ngày viết" required>
+                <button type="submit">Đăng bài</button>
+            </form>
+        </section>
+
+        <section class="posts-list">
+            <h2>Danh sách bài viết</h2>
+            <div id="postsContainer">
+
+            </div>
+        </section>
+    </main>
+
+    <section>
+        <div>
+            <input type="text" id="searchInput" placeholder="Tìm kiếm bài viết...">
+            <button onclick="search()">Tìm kiếm</button>
+            <button onclick="clearSearch()">Xóa</button>
+        </div>
+        <div class="filter-options">
+            <select id="filterSelect" onchange="sortPosts()">
+                <option value="newest">Mới nhất</option>
+                <option value="oldest">Cũ nhất</option>
+                <option value="title">Theo tiêu đề</option>
+        </div>
+    </section>
+
+    <script>
+        document.getElementById('blogForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            const date = document.getElementById('date').value;
+
+            if (title && content && date) {
+                createPost(title, content, date);
+                clearForm();
+                showSuccess();
+            } else {
+                alert('Vui lòng điền đầy đủ thông tin.');
+            }
+        });
+    
+        function callApi() {
+            return fetch(`https://meowfacts.herokuapp.com/?count=3`)
+                .then(response => {
+                    console.log('Response:', response);
+                    return response.json()
+                })
+                .then(data => {
+                    console.log('Data:', data);
+                    return data.data}
+                )
+                .catch(error => console.error('Error fetching quote:', error));
+        }
+
+        function appendApiData() {
+            callApi().then(data => {
+                const postsContainer = document.getElementById('postsContainer');
+                data.forEach(item => {
+                    let postDiv = document.createElement('div');
+                    postDiv.className = 'post-item';
+                    postDiv.innerHTML = `
+                        <h3 class="post-title">${item}</h3>
+                        <p class="post-date">${new Date().toLocaleDateString('vi-VN')}</p>
+                        <p class="post-content">Nội dung bài viết từ API</p>
+                        <div class="post-actions">
+                            <button class="like-button" onclick="likePost(${Date.now()})">Thích</button>
+                            <span>❤️</span>
+                            <span class="like-count">0</span>
+                        </div>
+                        <button class="delete-button" onclick="deletePost(${Date.now()})">Xóa</button>
+                    `;
+                    postsContainer.appendChild(postDiv);
+                });
+            });
+        }
+        appendApiData();
+
+        let blogPosts = JSON.parse(localStorage.getItem('blogPosts')) || [];
+
+        // function generateUUID() {
+        //     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        //         const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        //         return v.toString(16);
+        //     });
+        // }
+
+        function createPost(title, content, date) {
+            savePostToStorage(title, content, date);
+            displayAllPosts();
+        }
+
+        function savePostToStorage(title, content, date) {
+            const post = {
+                id: Date.now(),
+                title: title,
+                content: content,
+                date: date,
+                like: 0
+            };
+            blogPosts.unshift(post);
+            localStorage.setItem('blogPosts', JSON.stringify(blogPosts));
+        }
+
+        function init() {
+            displayAllPosts();
+        }
+
+        function deletePost(id) {
+            console.log('Deleting post with ID:', id);
+            blogPosts = blogPosts.filter(post => post.id !== id);
+            localStorage.setItem('blogPosts', JSON.stringify(blogPosts));
+            displayAllPosts();
+        }
+
+        async function displayAllPosts() {
+            const postsContainer = document.getElementById('postsContainer');
+            postsContainer.innerHTML = '';
+
+            if (blogPosts.length === 0) {
+                postsContainer.innerHTML = '<p>Chưa có bài viết nào.</p>';
+                return;
+            }
+
+            // blogPosts.forEach(post => async function() {
+            for (const post of blogPosts) {
+                let postDiv = document.createElement('div');
+                postDiv.className = 'post-item';
+                postDiv.setAttribute('data-id', post.id);
+
+                // const formatDate = new Date(post.date).toLocaleDateString('vi-VN');
+            
+                postDiv.innerHTML = `
+                    <h3 class="post-title">${post.title}</h3>
+                    <p class="post-date">${post.date}</p>
+                    <p class="post-content">${post.content}</p>
+                    <div class="post-actions">
+                        <button class="like-button" onclick="likePost(${post.id})">Thích</button>
+                        <span>❤️</span>
+                        <span class="like-count">${post.like}</span>
+                    </div>
+                    <button class="delete-button" onclick="deletePost(${post.id})">Xóa</button>
+                `;
+                postsContainer.appendChild(postDiv);
+            };
+        }
+
+        function loadPostsFromStorage() {
+            const storedPosts = localStorage.getItem('blogPosts');
+            if (storedPosts) {
+                blogPosts = JSON.parse(storedPosts);
+                blogPosts.forEach(post => {
+                    createPost(post.title, post.content, post.date);
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+
+        function clearForm() {
+            document.getElementById('title').value = '';
+            document.getElementById('content').value = '';
+            document.getElementById('date').value = '';
+        }
+
+        function showSuccess() {
+            const successMessage = document.createElement('div');
+            successMessage.textContent = 'Bài viết đã được đăng thành công!';
+            successMessage.classList.add('success-message');
+
+            document.querySelector('.post-form').appendChild(successMessage);
+
+            setTimeout(() => {
+                successMessage.remove();
+            }, 3000);
+        }
+
+        function search() {
+            let searchInput = document.getElementById('searchInput').value.toLowerCase();
+            let container = document.getElementById('postsContainer');
+
+            if (searchInput === '') {
+                displayAllPosts();
+                return;
+            }
+
+            let filteredPosts = blogPosts.filter(post => 
+                post.title.toLowerCase().includes(searchInput) || 
+                post.content.toLowerCase().includes(searchInput)
+            );
+            
+            displayFilteredPosts(filteredPosts, `Tìm thấy ${filteredPosts.length} bài viết cho kết quả "${searchInput}"`);
+        }
+
+        function displayFilteredPosts(filteredPosts, message = 'Kết quả tìm kiếm') {
+            const postsContainer = document.getElementById('postsContainer');
+            postsContainer.innerHTML = '';
+
+            if (filteredPosts.length === 0) {
+                postsContainer.innerHTML = '<p>Không tìm thấy bài viết nào.</p>';
+                return;
+            }
+
+            filteredPosts.forEach(post => {
+                let postDiv = document.createElement('div');
+                postDiv.className = 'post-item';
+                postDiv.setAttribute('data-id', post.id);
+
+                postDiv.innerHTML = `
+                    <h3 class="post-title">${post.title}</h3>
+                    <p class="post-date">${post.date}</p>
+                    <p class="post-content">${post.content}</p>
+                    <button class="delete-button" onclick="deletePost(${post.id})">Xóa</button>
+                `;
+                postsContainer.appendChild(postDiv);
+            });   
+        }
+
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            displayAllPosts();
+        }
+
+        function sortPosts() {
+            let sortType = document.getElementById('filterSelect').value;
+            let sortedPosts = [...blogPosts];
+
+            switch (sortType) {
+                case 'newest':
+                    sortedPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    break;
+                case 'oldest':
+                    sortedPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    break;
+                case 'title':
+                    sortedPosts.sort((a, b) => a.title.localeCompare(b.title));
+                    break;
+            }
+
+            displayFilteredPosts(sortedPosts, `Sắp xếp theo: ${sortType}`);
+        }
+
+        function likePost(id) {
+            const postDiv = document.querySelector(`.post-item[data-id="${id}"]`);
+            const likeCountSpan = postDiv.querySelector('.like-count');
+            let likeCount = parseInt(likeCountSpan.textContent) || 0;
+
+            likeCount++;
+            likeCountSpan.textContent = likeCount;
+
+            const postIndex = blogPosts.findIndex(post => post.id === id);
+            if (postIndex !== -1) {
+                blogPosts[postIndex].like = likeCount;
+                localStorage.setItem('blogPosts', JSON.stringify(blogPosts));
+            }
+        }
+    </script>
+</body>
+</html>
